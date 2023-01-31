@@ -1,0 +1,614 @@
+<!--
+Youtube Link: https://www.youtube.com/watch?v=hr781fsF3do
+Presentation Date and Time: 16 November 2021, Time 9:20 - 9:25 AM
+Group: FF7C4C
+First Name: Warit   
+Last Name: Thoumprasert
+Student ID: 6309680095
+E-mail: Warit.thou@dome.tu.ac.th
+
+First Name: Suphichayamol
+Last Name: Sae-khio
+Student ID:6309681135
+E-mail: Suphichayamol.sae@dome.tu.ac.th
+
+-->
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css?family=Lacquer">
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+        <title>Before I Died</title>
+        <style>
+            html, 
+            body 
+            { 
+            height: 100%; margin: 0;
+            margin: 0;
+	        background-color: #000;
+	        color: #fff;
+	        font-family: Lacquer; 
+            }
+            #overlay button {
+		    background: transparent;
+		    border: 0;
+		    border: 1px solid rgb(255, 255, 255);
+		    border-radius: 4px;
+		    color: #ffffff;
+		    padding: 12px 18px;
+		    text-transform: uppercase;
+		    cursor: pointer;
+	        }
+            #c { width: 100%; height: 100%; display: block; }
+            #blocker {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            }
+
+            #instructions {
+            width: 100%;
+            height: 100%;
+
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+
+            text-align: center;
+            font-size: 20px;
+            cursor: pointer;
+            }
+    </style>
+    </head>
+    <body>
+        <canvas id="c"></canvas>
+        <div id="blocker">
+            <div id="instructions">
+                <p style="font-size:100px">
+                    BEFORE I <font style="color: red;">DIED </font></p> 
+                  <p style="font-size:40px">
+                    CLICK TO PLAY
+                  </p> 
+                  <p>
+                    THE EVENTS THAT PEOPLE AROUND THE WORLD ARE INFECTED <br/>
+                    WITH THE VIRUS OUTBREAK AND THIS IS WHAT HAPPENED BEFORE I DIED. <br/>
+                  </p>
+              <p style="font-size:10px">
+                Move : W A S D <br/>
+                Shooting : SPACE BAR <br/>
+                LOOK : LEFT ARROW AND RIGHT ARROW <br/>
+              </p>
+              
+              </p>
+            </div>
+          </div>
+      </body>
+
+    <script type="module">
+
+        import * as THREE from 'three';
+        import { PointerLockControls } from 'https://threejs.org/examples/jsm/controls/PointerLockControls.js';
+        import { OBJLoader } from 'https://threejsfundamentals.org/threejs/resources/threejs/r132/examples/jsm/loaders/OBJLoader.js';
+        import { MTLLoader } from 'https://threejsfundamentals.org/threejs/resources/threejs/r132/examples/jsm/loaders/MTLLoader.js';
+        import {GLTFLoader} from 'https://threejsfundamentals.org/threejs/resources/threejs/r132/examples/jsm/loaders/GLTFLoader.js';
+        import {GUI} from 'https://threejsfundamentals.org/threejs/../3rdparty/dat.gui.module.js';
+
+        var scene, camera, renderer, mesh, clock, canvas;
+        var meshFloor, ambientLight, light, map;
+        var fov,aspect,near,far; // Use for set the camera
+
+        var crate1, crateTexture1, crateNormalMap1, crateBumpMap1;
+        var crate2, crateTexture2, crateNormalMap2, crateBumpMap2;
+        var crate3, crateTexture3, crateNormalMap3, crateBumpMap3;
+        var crate4, controls, camera2;
+
+       
+        var keyboard = {};
+        var player = {height:1.8, speed:0.3, turnSpeed:Math.PI*0.02, canShoot:0}; //Player: first-person-view
+        
+        var USE_WIREFRAME = false;
+        var RESOURCES_LOADED = false;
+
+        //set value scene camera in loadingScreen
+        var loadingScreen = {
+	    scene: new THREE.Scene(),
+	    camera: new THREE.PerspectiveCamera(fov, aspect, near, far),
+        //Loading screen have box rotate around when we loaded a file to scene
+	    box: new THREE.Mesh(
+		new THREE.BoxGeometry(0.5,0.5,0.5),
+		new THREE.MeshBasicMaterial({ color:0x4444ff })
+	    )
+    };
+
+        //Requirements 30% Use PointLight
+        var models = {
+        blaster:{
+		obj:"models/blasterM.obj",
+		mtl:"models/blasterM.mtl",
+		mesh: null,
+		castShadow:false
+	    },
+        stone1:{
+        obj:"models/stone01.obj",
+        mtl:"models/stone01.mtl",
+        mesh: null,
+        castShadow:false
+        }
+        };
+
+        var meshes = {}; //Meshes index
+        var bullets = []; //Gun bullet array
+        var soundShooting; //Sound shooting
+
+        var loadingManager = null;
+
+    function init(){
+            
+    scene = new THREE.Scene();
+    clock = new THREE.Clock();
+    const gui = new GUI();
+
+    fov = 90;
+    aspect = 2;  // the canvas default
+    near = 0.1;
+    far = 1000;
+
+    camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+
+    //have a box when loadded All 3d object&Run project!
+    loadingScreen.box.position.set(0,0,5);
+	loadingScreen.camera.lookAt(loadingScreen.box.position);
+	loadingScreen.scene.add(loadingScreen.box);
+	
+	loadingManager = new THREE.LoadingManager();
+    //can see which 3D object has been loaded on Console.log
+	loadingManager.onProgress = function(item, loaded, total){
+		console.log(item, loaded, total);
+	};
+
+    //loaded finish 
+	loadingManager.onLoad = function(){
+	console.log("loaded all resources");
+	RESOURCES_LOADED = true;
+	onResourcesLoaded();
+	};
+       
+    
+    //sky & fog
+    //1. Selection Requirement  - Create fog on scene
+    //Requirements 30%  have interactive UI
+    // We use this class to pass to dat.gui
+    // so when it manipulates near or far
+    // near is never > far and far is never < near
+    // Also when dat.gui maniplates color we'll
+    // update both the fog and background colors.
+    class FogGUIHelper {
+        constructor(fog, backgroundColor) {
+        this.fog = fog;
+        this.backgroundColor = backgroundColor;
+    }
+        get near() {
+        return this.fog.near;
+    }
+        set near(v) {
+        this.fog.near = v;
+        this.fog.far = Math.max(this.fog.far, v);
+    }
+        get far() {
+        return this.fog.far;
+    }
+        set far(v) {
+        this.fog.far = v;
+        this.fog.near = Math.min(this.fog.near, v);
+    }
+        get color() {
+        return `#${this.fog.color.getHexString()}`;
+    }
+        set color(hexString) {
+        this.fog.color.set(hexString);
+        this.backgroundColor.set(hexString);
+    }
+}
+
+        //UI side user can change color fog & background
+    {
+        const near = 60;
+        const far = 200;
+        const color = 'darkred'; //#8B0000 in hex code
+        scene.fog = new THREE.Fog(color, near, far);
+        scene.background = new THREE.Color(color);
+
+        const fogGUIHelper = new FogGUIHelper(scene.fog, scene.background);
+        gui.add(fogGUIHelper, 'near', near, far).listen();
+        gui.add(fogGUIHelper, 'far', near, far).listen();
+        gui.addColor(fogGUIHelper, 'color');
+    }
+
+
+ 
+        //2. Selection Requirement  - add music when play the scene
+        // create an AudioListener and add it to the camera
+    {
+        const listener = new THREE.AudioListener();
+        camera.add(listener);
+        // create a global audio source
+        const sound = new THREE.Audio(listener);
+        // load a sound and set it as the Audio object's buffer
+        //environtment sound
+        const audioLoader = new THREE.AudioLoader();
+        audioLoader.load('sound/sound.mp3',function(buffer) {
+        sound.setBuffer(buffer);
+        sound.setLoop(true);
+        sound.setVolume(0.5);
+        sound.play();
+        });
+        
+        //shooting sound
+        soundShooting = new THREE.Audio(listener);
+        audioLoader.load('sound/sound2.mp3',function(buffer) {
+        soundShooting.setBuffer(buffer);
+        soundShooting.setLoop(false);
+        soundShooting.setVolume(0.5);
+        });
+    }
+    
+        //Requirements 30% Use PointLight 
+        //3. Selection Requirement  - Create model with blender
+        //load map 3d object
+        const gltfLoader = new GLTFLoader();
+        gltfLoader.load('map/terrain.gltf',(gltf)=>{
+        const root = gltf.scene;
+        scene.add(root);
+        map = root.getObjectByName('map');
+        map.position.set(85,-30,110);
+
+        });
+
+        //Work with css click and play -> game
+        camera2 = new THREE.PerspectiveCamera(fov, aspect, near, far),
+        controls = new PointerLockControls( camera2, document.body );
+        //get element from # in css part
+        const blocker = document.getElementById( 'blocker' );
+        const instructions = document.getElementById( 'instructions' );
+
+        //click -> go to lock function
+        instructions.addEventListener( 'click', function () {
+        controls.lock();
+        } );
+
+        controls.addEventListener( 'lock', function () {
+        instructions.style.display = 'none';
+        blocker.style.display = 'none';
+        } );
+
+        controls.addEventListener( 'unlock', function () {
+        blocker.style.display = 'block';
+        instructions.style.display = '';
+        } );
+
+        scene.add( controls.getObject() );
+            
+
+        //Light & Shadow
+        ambientLight = new THREE.AmbientLight(0xffffff,0.5); //light environment
+        scene.add(ambientLight);
+        //Requirements 30% Use PointLight
+        light = new THREE.PointLight(0xffffff,1,300); //add point light
+        light.position.set(0,20,0);
+        light.castShadow = true; //เงาตกทอด
+        //Distance to light
+        light.shadow.camera.near = 0.1;
+        light.shadow.camera.far = 25;
+        scene.add(light);
+
+        //4. Selection Requirement  - Use bump or normal map to Object
+        //5. Selection Requirement - Shadow from box (not clearly because from setting pointlight its not near the box)
+        //textureLoader -> to load texture 
+        const textureLoader = new THREE.TextureLoader(loadingManager);
+        //texture map diffuse,bump,normal : 01
+        crateTexture1 = textureLoader.load("texture/crate0/crate0_diffuse.png");
+        crateBumpMap1 = textureLoader.load("texture/crate0/crate0_bump.png");
+        crateNormalMap1 = textureLoader.load("texture/crate0/crate0_normal.png");
+            
+        //crate1 with texture 01
+        crate1 = new THREE.Mesh(
+		new THREE.BoxGeometry(5,5,5),
+		new THREE.MeshPhongMaterial({
+		color:0xffffff,
+		map:crateTexture1,
+		bumpMap:crateBumpMap1,
+		normalMap:crateNormalMap1
+		})
+	    );
+        crate1.receiveShadow = true;
+        crate1.castShadow = true;
+        crate1.position.set(-84,-10,10);
+        scene.add(crate1);
+        
+        //texture map diffuse,bump,normal : 02
+        crateTexture2 = textureLoader.load("texture/crate1/crate1_diffuse.png");
+        crateBumpMap2 = textureLoader.load("texture/crate1/crate1_bump.png");
+        crateNormalMap2 = textureLoader.load("texture/crate1/crate1_normal.png");
+        //crate2 with texture 02
+        crate2 = new THREE.Mesh(
+		new THREE.BoxGeometry(5,5,5),
+		new THREE.MeshPhongMaterial({
+		color:0xffffff,
+		map:crateTexture2,
+		bumpMap:crateBumpMap2,
+		normalMap:crateNormalMap2
+		})
+	    );
+        crate2.receiveShadow = true;
+        crate2.castShadow = true;
+        crate2.position.set(-90,-10,7);
+        scene.add(crate2);
+
+        //texture map diffuse,bump,normal : 03
+        crateTexture3 = textureLoader.load("texture/crate2/crate2_diffuse.png");
+        crateBumpMap3 = textureLoader.load("texture/crate2/crate2_bump.png");
+        crateNormalMap3 = textureLoader.load("texture/crate2/crate2_normal.png");
+        //crate3 with texture 03
+        crate3 = new THREE.Mesh(
+		new THREE.BoxGeometry(5,5,5),
+		new THREE.MeshPhongMaterial({
+		color:0xffffff,
+		map:crateTexture3,
+		bumpMap:crateBumpMap3,
+		normalMap:crateNormalMap3
+		})
+	    );
+        crate3.receiveShadow = true;
+        crate3.castShadow = true;
+        crate3.position.set(-87,-5,8);
+        scene.add(crate3);
+        //crate4 with texture 03
+        crate4 = new THREE.Mesh(
+		new THREE.BoxGeometry(5,5,5),
+		new THREE.MeshPhongMaterial({
+		color:0xffffff,
+		map:crateTexture3,
+		bumpMap:crateBumpMap3,
+		normalMap:crateNormalMap3
+		})
+	    );
+        crate4.receiveShadow = true;
+        crate4.castShadow = true;
+        crate4.position.set(-85,-10,5);
+        scene.add(crate4);
+
+            
+
+
+        // Add Models
+
+        for( var _key in models ){
+		(function(key){
+			
+		const mtlLoader = new MTLLoader(loadingManager);
+		mtlLoader.load(models[key].mtl, function(materials){
+		materials.preload();
+				
+		const objLoader = new OBJLoader(loadingManager);
+				
+		objLoader.setMaterials(materials);
+		objLoader.load(models[key].obj, function(mesh){
+		//set shadow for models import
+		mesh.traverse(function(node){
+			if( node instanceof THREE.Mesh ){
+				if('castShadow' in models[key])
+				    node.castShadow = models[key].castShadow;
+				else
+					node.castShadow = true;
+							
+				if('receiveShadow' in models[key])
+					node.receiveShadow = models[key].receiveShadow;
+				else
+					node.receiveShadow = true;
+					}
+			});
+		models[key].mesh = mesh; //mesh obj+mtl to the one object
+					
+		});
+		});
+			
+	})(_key);
+	}
+
+            //camera position
+            camera.position.set(0,player.height,-5);
+            camera.lookAt(new THREE.Vector3(0,player.height,0)); //vector 3d look
+
+            canvas = document.querySelector('#c');
+            renderer = new THREE.WebGLRenderer({canvas});
+            renderer.shadowMap.enabled = true;
+            
+            document.body.appendChild(renderer.domElement);
+
+            document.addEventListener('keydown',keyboard,false);
+       
+            animate();
+}
+
+
+    // Runs when all resources are loaded -> can watch on console.log 
+    function onResourcesLoaded(){
+    // Clone models into meshes.
+    meshes["stone1"] = models.stone1.mesh.clone();
+    meshes["stone2"] = models.stone1.mesh.clone();
+    meshes["stone1"].position.set(-110,-15,-80);
+    meshes["stone1"].scale.set(5,5,5);
+    scene.add(meshes["stone1"]);
+    meshes["stone2"].position.set(-110,-15,-87);
+    meshes["stone2"].scale.set(5,5,5);
+    scene.add(meshes["stone2"]);
+
+    // player weapon 
+    meshes["playerweapon"] = models.blaster.mesh.clone();
+    meshes["playerweapon"].position.set(0,2,0);
+    meshes["playerweapon"].scale.set(2,2,2);
+    scene.add(meshes["playerweapon"]);
+}
+
+
+    //resolution
+    function resizeRendererToDisplaySize(renderer) {
+    const canvas = renderer.domElement;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    const needResize = canvas.width !== width || canvas.height !== height;
+    if (needResize) {
+        renderer.setSize(width, height, false);
+    }
+    return needResize;
+    }
+
+    //animate render
+    function animate(){
+
+	// Play the loading screen until resources are loaded.
+	if( RESOURCES_LOADED == false ){
+		requestAnimationFrame(animate);
+		
+		loadingScreen.box.position.x -= 0.05;
+		if( loadingScreen.box.position.x < -10 ) loadingScreen.box.position.x = 10;
+		loadingScreen.box.position.y = Math.sin(loadingScreen.box.position.x);
+		
+		renderer.render(loadingScreen.scene, loadingScreen.camera);
+		return;
+	}
+
+	requestAnimationFrame(animate);
+
+    var time = Date.now() * 0.0005;
+    var delta = clock.getDelta();
+
+    if (resizeRendererToDisplaySize(renderer)) {
+    const canvas = renderer.domElement;
+    camera.aspect = canvas.clientWidth / canvas.clientHeight;
+    camera.updateProjectionMatrix();
+    }
+
+    //loop for update our bullet every frame.
+    for(var index = 0; index<bullets.length; index+=1){
+        if(bullets[index] === undefined) continue;
+        if(bullets[index].alive == false){ //if bullets not alive -> skip to next one and remove this one
+            bullets.splice(index,1);
+            continue;
+        }
+        //add velocity to bullet position. 
+        bullets[index].position.add(bullets[index].velocity);//technically : integration
+    }
+
+    ////6. Selection Requirement -  controls camera from keyboard WASD and left & right arrow 
+    //unicode from https://www.cambiaresearch.com/articles/15/javascript-char-codes-key-codes  
+
+    if(keyboard[87]){ // W key
+		camera.position.x -= Math.sin(camera.rotation.y) * player.speed;
+		camera.position.z -= -Math.cos(camera.rotation.y) * player.speed;
+	}
+	if(keyboard[83]){ // S key
+		camera.position.x += Math.sin(camera.rotation.y) * player.speed;
+		camera.position.z += -Math.cos(camera.rotation.y) * player.speed;
+	}
+	if(keyboard[65]){ // A key
+		camera.position.x += Math.sin(camera.rotation.y + Math.PI/2) * player.speed;
+		camera.position.z += -Math.cos(camera.rotation.y + Math.PI/2) * player.speed;
+	}
+	if(keyboard[68]){ // D key
+		camera.position.x += Math.sin(camera.rotation.y - Math.PI/2) * player.speed;
+		camera.position.z += -Math.cos(camera.rotation.y - Math.PI/2) * player.speed;
+	}
+	
+	if(keyboard[37]){ // left arrow key
+		camera.rotation.y -= player.turnSpeed;
+	}
+	if(keyboard[39]){ // right arrow key
+		camera.rotation.y += player.turnSpeed;
+	}
+
+    if(keyboard[32] && player.canShoot <= 0){ // space bar key -> shoot
+        
+        soundShooting.play(); //sound shoot when bullet out
+        //gold metallic balls bullet
+        var bullet = new THREE.Mesh(
+            new THREE.SphereGeometry(0.05,8,8),
+            new THREE.MeshBasicMaterial({color:0xD4AF37})
+        );
+
+        /* change position ลองเพิ่มโมเดลกระสุนมา
+        var bullet = models.foamBullet.mesh.clone();
+        bullet.scale.set(3,3,3);
+        bullet.rotation.set(-30,camera.rotation.y,0);*/
+        
+        //set it to spawn using the playerweapon position, not the camera position
+        
+        bullet.position.set(
+        meshes["playerweapon"].position.x,
+        meshes["playerweapon"].position.y + 0.15,
+        meshes["playerweapon"].position.z
+        );
+
+        //give it velocity in the camera direction
+        bullet.velocity = new THREE.Vector3(
+            -Math.sin(camera.rotation.y),
+            0,
+            Math.cos(camera.rotation.y)
+        );
+        bullet.alive = true;
+        //set timer to remove the bullet from scene after 1000ms
+        setTimeout(
+            function(){
+                bullet.alive = false;
+                scene.remove(bullet);
+            }, 1000);
+
+            bullets.push(bullet); //bullet in bullets array
+            scene.add(bullet);
+            player.canShoot = 6; //take 1 spacebar -> many bullets if put a lot of value player.canShoot bullet late departure
+            //1 bullet 6 frames = many bullet in 1 touch space bar 
+    }
+    if(player.canShoot>0) player.canShoot -= 1;
+        
+	// position the gun in front of the camera
+    meshes["playerweapon"].position.set(
+        camera.position.x - Math.sin(camera.rotation.y + Math.PI/6)*0.75,
+        camera.position.y - 0.5 + Math.sin(time*4 + camera.position.x + camera.position.z )*0.01, //like player hold the real gun
+        camera.position.z + Math.cos(camera.rotation.y + Math.PI/6)*0.75
+    );
+
+    //set the gun stable
+    meshes["playerweapon"].rotation.set(
+        camera.rotation.x,
+        camera.rotation.y - Math.PI,
+        camera.rotation.z
+    );
+
+    renderer.render(scene,camera);
+           
+}
+    
+function keyDown(event){ //key input 
+	keyboard[event.keyCode] = true;
+}
+
+function keyUp(event){//out of input text
+	keyboard[event.keyCode] = false;
+}
+
+
+window.addEventListener('keydown', keyDown); //call keydown when we key
+window.addEventListener('keyup', keyUp);    //call keyup when we key
+
+
+init();
+
+
+
+</script>
+</html>
